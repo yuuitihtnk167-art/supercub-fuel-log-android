@@ -1,0 +1,13 @@
+.idea/
+.vscode/
+.gradle/
+local.properties
+*.iml
+*.apk
+*.aab
+*.keystore
+*.jks
+build/
+app/build/
+app/google-services.json
+.DS_Store

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Supercub Fuel Log</string>
+    <string name="web_client_id">REPLACE_WITH_WEB_CLIENT_ID</string>
+</resources>
