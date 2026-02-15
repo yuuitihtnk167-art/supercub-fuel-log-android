@@ -149,6 +149,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val current = repository.load(target).toMutableList()
             val existingIndex = current.indexOfFirst { it.id == record.id }
+            val isUpdate = existingIndex >= 0
             if (existingIndex >= 0) {
                 current[existingIndex] = record
             } else {
@@ -163,6 +164,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             editingRecord = null
+            _messages.emit(if (isUpdate) "更新しました。" else "保存しました。")
         }
     }
 
