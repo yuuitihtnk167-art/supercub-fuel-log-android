@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,16 +22,15 @@ import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +63,7 @@ fun RecordScreen(
     onNavigate: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val click = { viewModel.performClickFeedback(context) }
 
     val editingRecord = viewModel.editingRecord
     var date by rememberSaveable { mutableStateOf("") }
@@ -89,7 +90,13 @@ fun RecordScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-        NavButtons(currentRoute = currentRoute, onNavigate = onNavigate)
+        NavButtons(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -121,7 +128,10 @@ fun RecordScreen(
                     label = { Text("日付 (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
-                        IconButton(onClick = openDatePicker) {
+                        IconButton(onClick = {
+                            click()
+                            openDatePicker()
+                        }) {
                             Icon(
                                 imageVector = Icons.Filled.CalendarMonth,
                                 contentDescription = "Select date"
@@ -149,6 +159,7 @@ fun RecordScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = {
+                            click()
                             val fuelNum = fuel.toDoubleOrNull()
                             val mileageNum = mileage.takeIf { it.isNotBlank() }?.toDoubleOrNull()
 
@@ -181,7 +192,10 @@ fun RecordScreen(
 
                     if (editingRecord != null) {
                         OutlinedButton(
-                            onClick = { viewModel.cancelEditing() },
+                            onClick = {
+                                click()
+                                viewModel.cancelEditing()
+                            },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("キャンセル")
@@ -190,6 +204,15 @@ fun RecordScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        BottomSettingsButton(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
     }
 }
 
@@ -202,6 +225,7 @@ fun HistoryScreen(
 ) {
     val records by viewModel.records.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val click = { viewModel.performClickFeedback(context) }
 
     var pendingDeleteAll by remember { mutableStateOf(false) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
@@ -247,6 +271,7 @@ fun HistoryScreen(
             message = "すべての記録を削除しますか？",
             confirmLabel = "削除する",
             onConfirm = {
+                click()
                 viewModel.deleteAll()
                 pendingDeleteAll = false
             },
@@ -260,6 +285,7 @@ fun HistoryScreen(
             message = "この記録を削除しますか？",
             confirmLabel = "削除する",
             onConfirm = {
+                click()
                 viewModel.deleteRecord(pendingDeleteId!!)
                 pendingDeleteId = null
             },
@@ -275,7 +301,13 @@ fun HistoryScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-        NavButtons(currentRoute = currentRoute, onNavigate = onNavigate)
+        NavButtons(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -287,16 +319,25 @@ fun HistoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("text/*")) }) {
+                    OutlinedButton(onClick = {
+                        click()
+                        importLauncher.launch(arrayOf("text/*"))
+                    }) {
                         Icon(Icons.Filled.Upload, contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("CSVインポート")
                     }
-                    OutlinedButton(onClick = { exportLauncher.launch("fuel_records.csv") }) {
+                    OutlinedButton(onClick = {
+                        click()
+                        exportLauncher.launch("fuel_records.csv")
+                    }) {
                         Text("CSVエクスポート")
                     }
                 }
-                OutlinedButton(onClick = { pendingDeleteAll = true }) {
+                OutlinedButton(onClick = {
+                    click()
+                    pendingDeleteAll = true
+                }) {
                     Icon(Icons.Filled.Delete, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("すべて削除")
@@ -340,6 +381,7 @@ fun HistoryScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (formulaInfo != null) {
                                         OutlinedButton(onClick = {
+                                            click()
                                             expandedFormulaId = if (expandedFormulaId == record.id) null else record.id
                                         }) {
                                             Icon(Icons.Filled.Calculate, contentDescription = null)
@@ -347,10 +389,16 @@ fun HistoryScreen(
                                             Text(if (expandedFormulaId == record.id) "計算式を隠す" else "計算式")
                                         }
                                     }
-                                    OutlinedButton(onClick = { onEditNavigate(record) }) {
+                                    OutlinedButton(onClick = {
+                                        click()
+                                        onEditNavigate(record)
+                                    }) {
                                         Text("編集")
                                     }
-                                    OutlinedButton(onClick = { pendingDeleteId = record.id }) {
+                                    OutlinedButton(onClick = {
+                                        click()
+                                        pendingDeleteId = record.id
+                                    }) {
                                         Text("削除")
                                     }
                                 }
@@ -396,17 +444,27 @@ fun HistoryScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        BottomSettingsButton(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
     }
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun MonthlyScreen(
     viewModel: MainViewModel,
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
     val records by viewModel.records.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val click = { viewModel.performClickFeedback(context) }
 
     val months = remember(records) {
         records.mapNotNull { DateUtils.toYearMonth(it.date) }.distinct().sortedDescending()
@@ -432,7 +490,13 @@ fun MonthlyScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-        NavButtons(currentRoute = currentRoute, onNavigate = onNavigate)
+        NavButtons(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -440,23 +504,23 @@ fun MonthlyScreen(
                 Text("月を選択", style = MaterialTheme.typography.titleMedium)
 
                 var expanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = selectedMonth,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {
+                            click()
+                            expanded = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(if (selectedMonth.isBlank()) "月を選択" else selectedMonth)
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = "月を選択")
                         }
-                    )
-                    ExposedDropdownMenu(
+                    }
+                    DropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false },
                     ) {
@@ -464,6 +528,7 @@ fun MonthlyScreen(
                             DropdownMenuItem(
                                 text = { Text(month) },
                                 onClick = {
+                                    click()
                                     selectedMonth = month
                                     expanded = false
                                     showFormula = false
@@ -491,7 +556,10 @@ fun MonthlyScreen(
                             Text("総給油量: ${formatDouble(stats.totalFuel)} L", style = MaterialTheme.typography.bodySmall)
                             Text("${stats.records.size} 件", style = MaterialTheme.typography.bodySmall)
 
-                            OutlinedButton(onClick = { showFormula = !showFormula }) {
+                            OutlinedButton(onClick = {
+                                click()
+                                showFormula = !showFormula
+                            }) {
                                 Text(if (showFormula) "計算式を隠す" else "計算式を表示")
                             }
 
@@ -564,6 +632,94 @@ fun MonthlyScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        BottomSettingsButton(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
+    }
+}
+
+@Composable
+fun SettingsScreen(
+    viewModel: MainViewModel,
+    currentRoute: String,
+    onNavigate: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val hapticEnabled by viewModel.hapticEnabled.collectAsStateWithLifecycle()
+    val darkThemeEnabled by viewModel.darkThemeEnabled.collectAsStateWithLifecycle()
+    val click = { viewModel.performClickFeedback(context) }
+
+    ScreenContainer {
+        ScreenHeader(
+            title = "設定",
+            subtitle = "操作感とテーマを変更できます。",
+            icon = Icons.Filled.Settings
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        NavButtons(
+            currentRoute = currentRoute,
+            onNavigate = { route ->
+                click()
+                onNavigate(route)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("クリック時バイブ", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "タップ時の振動フィードバックを有効化",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = hapticEnabled,
+                        onCheckedChange = { enabled ->
+                            if (hapticEnabled) click()
+                            viewModel.setHapticEnabled(enabled)
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("ダークテーマ", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (darkThemeEnabled) "現在: ダーク" else "現在: ライト",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = darkThemeEnabled,
+                        onCheckedChange = { enabled ->
+                            click()
+                            viewModel.setDarkThemeEnabled(enabled)
+                        }
+                    )
                 }
             }
         }

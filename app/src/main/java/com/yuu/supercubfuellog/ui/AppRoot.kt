@@ -74,6 +74,19 @@ fun AppRoot(viewModel: MainViewModel) {
                     }
                 )
             }
+            composable("settings") {
+                SettingsScreen(
+                    viewModel = viewModel,
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            launchSingleTop = true
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            restoreState = true
+                        }
+                    }
+                )
+            }
         }
     }
 }

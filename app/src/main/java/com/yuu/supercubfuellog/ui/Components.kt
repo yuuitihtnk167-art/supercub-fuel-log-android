@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,12 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun ScreenContainer(content: @Composable ColumnScope.() -> Unit) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val background = if (isDark) {
         Brush.linearGradient(listOf(Color(0xFF0B0F1A), Color(0xFF111827), Color(0xFF0B0F1A)))
     } else {
@@ -59,6 +61,25 @@ fun ScreenContainer(content: @Composable ColumnScope.() -> Unit) {
                 .verticalScroll(rememberScrollState()),
             content = content
         )
+    }
+}
+
+@Composable
+fun BottomSettingsButton(
+    currentRoute: String,
+    onNavigate: (String) -> Unit
+) {
+    if (currentRoute == "settings") return
+
+    OutlinedButton(
+        onClick = { onNavigate("settings") },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+    ) {
+        androidx.compose.material3.Icon(Icons.Filled.Settings, contentDescription = null)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("設定")
     }
 }
 

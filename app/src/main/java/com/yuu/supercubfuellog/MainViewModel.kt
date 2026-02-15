@@ -1,7 +1,12 @@
 ﻿package com.yuu.supercubfuellog
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -29,6 +34,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val prefs = application.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
     private val database: AppDatabase = Room.databaseBuilder(
         application,
         AppDatabase::class.java,
@@ -54,6 +61,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _messages = MutableSharedFlow<String>()
     val messages = _messages.asSharedFlow()
 
+    private val _hapticEnabled = MutableStateFlow(prefs.getBoolean(KEY_HAPTIC_ENABLED, true))
+    val hapticEnabled = _hapticEnabled.asStateFlow()
+
+    private val _darkThemeEnabled = MutableStateFlow(prefs.getBoolean(KEY_DARK_THEME_ENABLED, false))
+    val darkThemeEnabled = _darkThemeEnabled.asStateFlow()
+
     var editingRecord: FuelRecord? by mutableStateOf(null)
         private set
 
@@ -70,6 +83,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun postMessage(message: String) {
         viewModelScope.launch {
             _messages.emit(message)
+        }
+    }
+
+    fun setHapticEnabled(enabled: Boolean) {
+        _hapticEnabled.value = enabled
+        prefs.edit().putBoolean(KEY_HAPTIC_ENABLED, enabled).apply()
+    }
+
+    fun setDarkThemeEnabled(enabled: Boolean) {
+        _darkThemeEnabled.value = enabled
+        prefs.edit().putBoolean(KEY_DARK_THEME_ENABLED, enabled).apply()
+    }
+
+    fun performClickFeedback(context: Context) {
+        if (!_hapticEnabled.value) return
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager = context.getSystemService(VibratorManager::class.java)
+            manager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+        vibrator?.let {
+            if (it.hasVibrator()) {
+                it.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
+            }
         }
     }
 
@@ -217,5 +256,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _records.value = emptyList()
             }
         }
+    }
+
+    companion object {
+        private const val KEY_HAPTIC_ENABLED = "haptic_enabled"
+        private const val KEY_DARK_THEME_ENABLED = "dark_theme_enabled"
     }
 }

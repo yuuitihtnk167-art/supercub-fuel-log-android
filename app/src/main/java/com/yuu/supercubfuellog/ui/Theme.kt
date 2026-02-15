@@ -22,10 +22,13 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun SupercubFuelLogTheme(content: @Composable () -> Unit) {
+fun SupercubFuelLogTheme(
+    darkTheme: Boolean,
+    content: @Composable () -> Unit
+) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         MaterialTheme(
-            colorScheme = if (androidx.compose.foundation.isSystemInDarkTheme()) DarkColors else LightColors,
+            colorScheme = if (darkTheme) DarkColors else LightColors,
             content = content
         )
     }

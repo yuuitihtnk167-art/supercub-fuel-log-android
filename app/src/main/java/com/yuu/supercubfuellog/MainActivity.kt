@@ -3,6 +3,7 @@
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yuu.supercubfuellog.ui.AppRoot
 import com.yuu.supercubfuellog.ui.SupercubFuelLogTheme
@@ -12,8 +13,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            SupercubFuelLogTheme {
-                val viewModel: MainViewModel = viewModel()
+            val viewModel: MainViewModel = viewModel()
+            val darkThemeEnabled by viewModel.darkThemeEnabled.collectAsStateWithLifecycle()
+            SupercubFuelLogTheme(darkTheme = darkThemeEnabled) {
                 AppRoot(viewModel = viewModel)
             }
         }
