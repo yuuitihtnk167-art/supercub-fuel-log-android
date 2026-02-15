@@ -59,20 +59,14 @@ import java.util.Locale
 fun RecordScreen(
     viewModel: MainViewModel,
     currentRoute: String,
-    onNavigate: (String) -> Unit,
-    onSignInClick: () -> Unit,
-    onSignOutClick: () -> Unit
+    onNavigate: (String) -> Unit
 ) {
-    val dataSource by viewModel.dataSource.collectAsStateWithLifecycle()
-    val user by viewModel.user.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     val editingRecord = viewModel.editingRecord
     var date by rememberSaveable { mutableStateOf("") }
     var mileage by rememberSaveable { mutableStateOf("") }
     var fuel by rememberSaveable { mutableStateOf("") }
-
-    var pendingSaveRecord by remember { mutableStateOf<FuelRecord?>(null) }
 
     LaunchedEffect(editingRecord) {
         if (editingRecord != null) {
@@ -86,33 +80,15 @@ fun RecordScreen(
         }
     }
 
-    if (pendingSaveRecord != null) {
-        TargetSelectDialog(
-            title = "保存先を選択",
-            message = "保存先（ローカル/クラウド）を選んでください。",
-            onSelect = { target ->
-                viewModel.saveRecord(pendingSaveRecord!!, target)
-                pendingSaveRecord = null
-            },
-            onDismiss = { pendingSaveRecord = null }
-        )
-    }
-
     ScreenContainer {
         ScreenHeader(
             title = "スーパー・カブ燃費記録",
             subtitle = "給油記録をシンプルに管理します。",
-            icon = Icons.Filled.Edit,
-            user = user,
-            onSignInClick = onSignInClick,
-            onSignOutClick = onSignOutClick
+            icon = Icons.Filled.Edit
         )
 
         Spacer(modifier = Modifier.height(16.dp))
         NavButtons(currentRoute = currentRoute, onNavigate = onNavigate)
-
-        Spacer(modifier = Modifier.height(16.dp))
-        DataSourceToggle(selected = dataSource, onSelect = viewModel::setDataSource)
 
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -195,7 +171,7 @@ fun RecordScreen(
                                 isEstimated = false,
                                 lastUpdated = now
                             )
-                            pendingSaveRecord = record
+                            viewModel.saveRecord(record, com.yuu.supercubfuellog.data.DataSource.LOCAL)
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -221,16 +197,11 @@ fun HistoryScreen(
     viewModel: MainViewModel,
     currentRoute: String,
     onNavigate: (String) -> Unit,
-    onSignInClick: () -> Unit,
-    onSignOutClick: () -> Unit,
     onEditNavigate: (FuelRecord) -> Unit
 ) {
-    val dataSource by viewModel.dataSource.collectAsStateWithLifecycle()
-    val user by viewModel.user.collectAsStateWithLifecycle()
     val records by viewModel.records.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var pendingImport by remember { mutableStateOf<List<FuelRecord>?>(null) }
     var pendingDeleteAll by remember { mutableStateOf(false) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     var expandedFormulaId by remember { mutableStateOf<String?>(null) }
@@ -245,7 +216,7 @@ fun HistoryScreen(
                 viewModel.postMessage("CSVファイルに有効なデータがありません。")
             } else {
                 val now = System.currentTimeMillis()
-                pendingImport = parsed.mapIndexed { index, csv ->
+                val imported = parsed.mapIndexed { index, csv ->
                     FuelRecord(
                         id = "${now}_$index",
                         date = csv.date,
@@ -254,6 +225,7 @@ fun HistoryScreen(
                         lastUpdated = now
                     )
                 }
+                viewModel.importRecords(imported, com.yuu.supercubfuellog.data.DataSource.LOCAL)
             }
         }
     }
@@ -266,18 +238,6 @@ fun HistoryScreen(
             writeTextToUri(context, uri, csv)
             viewModel.postMessage("CSVをエクスポートしました。")
         }
-    }
-
-    if (pendingImport != null) {
-        TargetSelectDialog(
-            title = "インポート先を選択",
-            message = "インポート先（ローカル/クラウド）を選んでください。",
-            onSelect = { target ->
-                viewModel.importRecords(pendingImport!!, target)
-                pendingImport = null
-            },
-            onDismiss = { pendingImport = null }
-        )
     }
 
     if (pendingDeleteAll) {
@@ -310,17 +270,11 @@ fun HistoryScreen(
         ScreenHeader(
             title = "履歴・インポート",
             subtitle = "給油履歴の確認とCSVの入出力",
-            icon = Icons.Filled.List,
-            user = user,
-            onSignInClick = onSignInClick,
-            onSignOutClick = onSignOutClick
+            icon = Icons.Filled.List
         )
 
         Spacer(modifier = Modifier.height(16.dp))
         NavButtons(currentRoute = currentRoute, onNavigate = onNavigate)
-
-        Spacer(modifier = Modifier.height(16.dp))
-        DataSourceToggle(selected = dataSource, onSelect = viewModel::setDataSource)
 
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
@@ -448,12 +402,8 @@ fun HistoryScreen(
 fun MonthlyScreen(
     viewModel: MainViewModel,
     currentRoute: String,
-    onNavigate: (String) -> Unit,
-    onSignInClick: () -> Unit,
-    onSignOutClick: () -> Unit
+    onNavigate: (String) -> Unit
 ) {
-    val dataSource by viewModel.dataSource.collectAsStateWithLifecycle()
-    val user by viewModel.user.collectAsStateWithLifecycle()
     val records by viewModel.records.collectAsStateWithLifecycle()
 
     val months = remember(records) {
@@ -476,17 +426,11 @@ fun MonthlyScreen(
         ScreenHeader(
             title = "月次燃費レポート",
             subtitle = "選択した月の燃費を確認できます。",
-            icon = Icons.Filled.CalendarMonth,
-            user = user,
-            onSignInClick = onSignInClick,
-            onSignOutClick = onSignOutClick
+            icon = Icons.Filled.CalendarMonth
         )
 
         Spacer(modifier = Modifier.height(16.dp))
         NavButtons(currentRoute = currentRoute, onNavigate = onNavigate)
-
-        Spacer(modifier = Modifier.height(16.dp))
-        DataSourceToggle(selected = dataSource, onSelect = viewModel::setDataSource)
 
         Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {

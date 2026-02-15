@@ -1,4 +1,4 @@
-package com.yuu.supercubfuellog.ui
+﻿package com.yuu.supercubfuellog.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,10 +23,10 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.google.firebase.auth.FirebaseUser
-import com.yuu.supercubfuellog.data.DataSource
 
 @Composable
 fun ScreenContainer(content: @Composable ColumnScope.() -> Unit) {
@@ -68,47 +66,26 @@ fun ScreenContainer(content: @Composable ColumnScope.() -> Unit) {
 fun ScreenHeader(
     title: String,
     subtitle: String,
-    icon: ImageVector,
-    user: FirebaseUser?,
-    onSignInClick: () -> Unit,
-    onSignOutClick: () -> Unit
+    icon: ImageVector
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
-        Column(horizontalAlignment = Alignment.End) {
-            if (user == null) {
-                OutlinedButton(onClick = onSignInClick, modifier = Modifier.height(40.dp)) {
-                    Text("Googleログイン")
-                }
-            } else {
-                Text(
-                    text = user.displayName ?: "ログイン中",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = onSignOutClick) {
-                    Text("ログアウト")
-                }
-            }
-        }
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -118,48 +95,15 @@ fun NavButtons(currentRoute: String, onNavigate: (String) -> Unit) {
         val isCompact = maxWidth < 600.dp
         if (isCompact) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                NavButton(
-                    label = "記録",
-                    icon = Icons.Filled.Edit,
-                    isActive = currentRoute == "record",
-                    onClick = { onNavigate("record") }
-                )
-                NavButton(
-                    label = "履歴・インポート",
-                    icon = Icons.Filled.List,
-                    isActive = currentRoute == "history",
-                    onClick = { onNavigate("history") }
-                )
-                NavButton(
-                    label = "月次レポート",
-                    icon = Icons.Filled.CalendarMonth,
-                    isActive = currentRoute == "monthly",
-                    onClick = { onNavigate("monthly") }
-                )
+                NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") })
+                NavButton(label = "履歴・インポート", icon = Icons.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") })
+                NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") })
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NavButton(
-                    label = "記録",
-                    icon = Icons.Filled.Edit,
-                    isActive = currentRoute == "record",
-                    onClick = { onNavigate("record") },
-                    modifier = Modifier.weight(1f)
-                )
-                NavButton(
-                    label = "履歴・インポート",
-                    icon = Icons.Filled.List,
-                    isActive = currentRoute == "history",
-                    onClick = { onNavigate("history") },
-                    modifier = Modifier.weight(1f)
-                )
-                NavButton(
-                    label = "月次レポート",
-                    icon = Icons.Filled.CalendarMonth,
-                    isActive = currentRoute == "monthly",
-                    onClick = { onNavigate("monthly") },
-                    modifier = Modifier.weight(1f)
-                )
+                NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") }, modifier = Modifier.weight(1f))
+                NavButton(label = "履歴・インポート", icon = Icons.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, modifier = Modifier.weight(1f))
+                NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") }, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -194,61 +138,6 @@ private fun NavButton(
             Text(label, color = contentColor)
         }
     }
-}
-
-@Composable
-fun DataSourceToggle(selected: DataSource, onSelect: (DataSource) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (selected == DataSource.LOCAL) {
-            Button(onClick = { onSelect(DataSource.LOCAL) }, modifier = Modifier.height(40.dp)) {
-                Text("ローカル")
-            }
-        } else {
-            OutlinedButton(onClick = { onSelect(DataSource.LOCAL) }, modifier = Modifier.height(40.dp)) {
-                Text("ローカル")
-            }
-        }
-
-        if (selected == DataSource.CLOUD) {
-            Button(onClick = { onSelect(DataSource.CLOUD) }, modifier = Modifier.height(40.dp)) {
-                Text("クラウド")
-            }
-        } else {
-            OutlinedButton(onClick = { onSelect(DataSource.CLOUD) }, modifier = Modifier.height(40.dp)) {
-                Text("クラウド")
-            }
-        }
-    }
-}
-
-@Composable
-fun TargetSelectDialog(
-    title: String,
-    message: String,
-    onSelect: (DataSource) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(message) },
-        confirmButton = {
-            Button(onClick = { onSelect(DataSource.LOCAL) }) {
-                Text("ローカル")
-            }
-        },
-        dismissButton = {
-            Row {
-                OutlinedButton(onClick = { onSelect(DataSource.CLOUD) }) {
-                    Text("クラウド")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onDismiss) {
-                    Text("キャンセル")
-                }
-            }
-        }
-    )
 }
 
 @Composable

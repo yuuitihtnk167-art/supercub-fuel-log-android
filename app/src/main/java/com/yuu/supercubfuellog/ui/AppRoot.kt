@@ -1,4 +1,4 @@
-package com.yuu.supercubfuellog.ui
+﻿package com.yuu.supercubfuellog.ui
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -15,11 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.yuu.supercubfuellog.MainViewModel
 
 @Composable
-fun AppRoot(
-    viewModel: MainViewModel,
-    onSignInClick: () -> Unit,
-    onSignOutClick: () -> Unit
-) {
+fun AppRoot(viewModel: MainViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val messages = viewModel.messages
 
@@ -33,13 +29,8 @@ fun AppRoot(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: "record"
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = "record"
-        ) {
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) {
+        NavHost(navController = navController, startDestination = "record") {
             composable("record") {
                 RecordScreen(
                     viewModel = viewModel,
@@ -47,14 +38,10 @@ fun AppRoot(
                     onNavigate = { route ->
                         navController.navigate(route) {
                             launchSingleTop = true
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             restoreState = true
                         }
-                    },
-                    onSignInClick = onSignInClick,
-                    onSignOutClick = onSignOutClick
+                    }
                 )
             }
             composable("history") {
@@ -64,14 +51,10 @@ fun AppRoot(
                     onNavigate = { route ->
                         navController.navigate(route) {
                             launchSingleTop = true
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             restoreState = true
                         }
                     },
-                    onSignInClick = onSignInClick,
-                    onSignOutClick = onSignOutClick,
                     onEditNavigate = { record ->
                         viewModel.startEditing(record)
                         navController.navigate("record") { launchSingleTop = true }
@@ -85,14 +68,10 @@ fun AppRoot(
                     onNavigate = { route ->
                         navController.navigate(route) {
                             launchSingleTop = true
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             restoreState = true
                         }
-                    },
-                    onSignInClick = onSignInClick,
-                    onSignOutClick = onSignOutClick
+                    }
                 )
             }
         }
