@@ -4,9 +4,7 @@ import android.app.DatePickerDialog
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,8 +22,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -399,6 +400,7 @@ fun HistoryScreen(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun MonthlyScreen(
     viewModel: MainViewModel,
     currentRoute: String,
@@ -438,19 +440,23 @@ fun MonthlyScreen(
                 Text("月を選択", style = MaterialTheme.typography.titleMedium)
 
                 var expanded by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth()) {
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     OutlinedTextField(
                         value = selectedMonth,
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { expanded = true },
+                            .menuAnchor(),
                         trailingIcon = {
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                         }
                     )
-                    DropdownMenu(
+                    ExposedDropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false },
                     ) {
