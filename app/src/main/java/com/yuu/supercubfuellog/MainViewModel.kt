@@ -127,87 +127,130 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         viewModelScope.launch {
+            if (_isLoading.value) return@launch
             _isLoading.value = true
-            val source = _dataSource.value
-            val loaded = if (source == DataSource.CLOUD && auth.currentUser == null) {
-                _messages.emit("クラウドを使うにはGoogleログインが必要です。")
-                emptyList()
-            } else {
-                repository.load(source)
+            try {
+                val source = _dataSource.value
+                val loaded = if (source == DataSource.CLOUD && auth.currentUser == null) {
+                    _messages.emit("クラウドを使うにはGoogleログインが必要です。")
+                    emptyList()
+                } else {
+                    repository.load(source)
+                }
+                _records.value = FuelCalculator.recalculate(loaded)
+            } catch (e: Exception) {
+                val detail = e.localizedMessage?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                _messages.emit("読み込みに失敗しました。($detail)")
+            } finally {
+                _isLoading.value = false
             }
-            _records.value = FuelCalculator.recalculate(loaded)
-            _isLoading.value = false
         }
     }
 
     fun saveRecord(record: FuelRecord, target: DataSource) {
         viewModelScope.launch {
-            if (target == DataSource.CLOUD && auth.currentUser == null) {
-                _messages.emit("クラウド保存にはGoogleログインが必要です。")
-                return@launch
+            if (_isLoading.value) return@launch
+            _isLoading.value = true
+            try {
+                if (target == DataSource.CLOUD && auth.currentUser == null) {
+                    _messages.emit("クラウド保存にはGoogleログインが必要です。")
+                    return@launch
+                }
+
+                val current = repository.load(target).toMutableList()
+                val existingIndex = current.indexOfFirst { it.id == record.id }
+                val isUpdate = existingIndex >= 0
+                if (existingIndex >= 0) {
+                    current[existingIndex] = record
+                } else {
+                    current.add(record)
+                }
+
+                val recalculated = FuelCalculator.recalculate(current)
+                repository.replaceAll(target, recalculated)
+
+                if (_dataSource.value == target) {
+                    _records.value = recalculated
+                }
+
+                editingRecord = null
+                _messages.emit(if (isUpdate) "更新しました。" else "保存しました。")
+            } catch (e: Exception) {
+                val detail = e.localizedMessage?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                _messages.emit("保存に失敗しました。($detail)")
+            } finally {
+                _isLoading.value = false
             }
-
-            val current = repository.load(target).toMutableList()
-            val existingIndex = current.indexOfFirst { it.id == record.id }
-            val isUpdate = existingIndex >= 0
-            if (existingIndex >= 0) {
-                current[existingIndex] = record
-            } else {
-                current.add(record)
-            }
-
-            val recalculated = FuelCalculator.recalculate(current)
-            repository.replaceAll(target, recalculated)
-
-            if (_dataSource.value == target) {
-                _records.value = recalculated
-            }
-
-            editingRecord = null
-            _messages.emit(if (isUpdate) "更新しました。" else "保存しました。")
         }
     }
 
     fun deleteRecord(id: String) {
         viewModelScope.launch {
-            val source = _dataSource.value
-            if (source == DataSource.CLOUD && auth.currentUser == null) {
-                _messages.emit("クラウドを使うにはGoogleログインが必要です。")
-                return@launch
+            if (_isLoading.value) return@launch
+            _isLoading.value = true
+            try {
+                val source = _dataSource.value
+                if (source == DataSource.CLOUD && auth.currentUser == null) {
+                    _messages.emit("クラウドを使うにはGoogleログインが必要です。")
+                    return@launch
+                }
+                val current = repository.load(source).filterNot { it.id == id }
+                val recalculated = FuelCalculator.recalculate(current)
+                repository.replaceAll(source, recalculated)
+                _records.value = recalculated
+            } catch (e: Exception) {
+                val detail = e.localizedMessage?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                _messages.emit("削除に失敗しました。($detail)")
+            } finally {
+                _isLoading.value = false
             }
-            val current = repository.load(source).filterNot { it.id == id }
-            val recalculated = FuelCalculator.recalculate(current)
-            repository.replaceAll(source, recalculated)
-            _records.value = recalculated
         }
     }
 
     fun deleteAll() {
         viewModelScope.launch {
-            val source = _dataSource.value
-            if (source == DataSource.CLOUD && auth.currentUser == null) {
-                _messages.emit("クラウドを使うにはGoogleログインが必要です。")
-                return@launch
+            if (_isLoading.value) return@launch
+            _isLoading.value = true
+            try {
+                val source = _dataSource.value
+                if (source == DataSource.CLOUD && auth.currentUser == null) {
+                    _messages.emit("クラウドを使うにはGoogleログインが必要です。")
+                    return@launch
+                }
+                repository.deleteAll(source)
+                _records.value = emptyList()
+            } catch (e: Exception) {
+                val detail = e.localizedMessage?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                _messages.emit("全件削除に失敗しました。($detail)")
+            } finally {
+                _isLoading.value = false
             }
-            repository.deleteAll(source)
-            _records.value = emptyList()
         }
     }
 
     fun importRecords(records: List<FuelRecord>, target: DataSource) {
         viewModelScope.launch {
-            if (target == DataSource.CLOUD && auth.currentUser == null) {
-                _messages.emit("クラウド保存にはGoogleログインが必要です。")
-                return@launch
-            }
+            if (_isLoading.value) return@launch
+            _isLoading.value = true
+            try {
+                if (target == DataSource.CLOUD && auth.currentUser == null) {
+                    _messages.emit("クラウド保存にはGoogleログインが必要です。")
+                    return@launch
+                }
 
-            val current = repository.load(target).toMutableList()
-            current.addAll(records)
-            val recalculated = FuelCalculator.recalculate(current)
-            repository.replaceAll(target, recalculated)
+                val current = repository.load(target).toMutableList()
+                current.addAll(records)
+                val recalculated = FuelCalculator.recalculate(current)
+                repository.replaceAll(target, recalculated)
 
-            if (_dataSource.value == target) {
-                _records.value = recalculated
+                if (_dataSource.value == target) {
+                    _records.value = recalculated
+                }
+            } catch (e: Exception) {
+                val detail = e.localizedMessage?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                _messages.emit("インポートに失敗しました。($detail)")
+            } finally {
+                _isLoading.value = false
             }
         }
     }

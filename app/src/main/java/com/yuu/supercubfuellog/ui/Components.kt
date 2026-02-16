@@ -67,11 +67,13 @@ fun ScreenContainer(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 fun BottomSettingsButton(
     currentRoute: String,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    enabled: Boolean = true
 ) {
     if (currentRoute == "settings") return
 
     OutlinedButton(
+        enabled = enabled,
         onClick = { onNavigate("settings") },
         modifier = Modifier
             .fillMaxWidth()
@@ -111,20 +113,24 @@ fun ScreenHeader(
 }
 
 @Composable
-fun NavButtons(currentRoute: String, onNavigate: (String) -> Unit) {
+fun NavButtons(
+    currentRoute: String,
+    onNavigate: (String) -> Unit,
+    enabled: Boolean = true
+) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val isCompact = maxWidth < 600.dp
         if (isCompact) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") })
-                NavButton(label = "履歴・インポート", icon = Icons.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") })
-                NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") })
+                NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") }, enabled = enabled)
+                NavButton(label = "履歴・インポート", icon = Icons.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, enabled = enabled)
+                NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") }, enabled = enabled)
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") }, modifier = Modifier.weight(1f))
-                NavButton(label = "履歴・インポート", icon = Icons.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, modifier = Modifier.weight(1f))
-                NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") }, modifier = Modifier.weight(1f))
+                NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") }, modifier = Modifier.weight(1f), enabled = enabled)
+                NavButton(label = "履歴・インポート", icon = Icons.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, modifier = Modifier.weight(1f), enabled = enabled)
+                NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") }, modifier = Modifier.weight(1f), enabled = enabled)
             }
         }
     }
@@ -136,7 +142,8 @@ private fun NavButton(
     icon: ImageVector,
     isActive: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     val colors = if (isActive) {
         ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -147,13 +154,13 @@ private fun NavButton(
     val buttonModifier = modifier.fillMaxWidth().height(48.dp)
 
     if (isActive) {
-        Button(onClick = onClick, colors = colors, modifier = buttonModifier) {
+        Button(onClick = onClick, enabled = enabled, colors = colors, modifier = buttonModifier) {
             androidx.compose.material3.Icon(icon, null, tint = contentColor)
             Spacer(modifier = Modifier.width(8.dp))
             Text(label, color = contentColor)
         }
     } else {
-        OutlinedButton(onClick = onClick, colors = colors, modifier = buttonModifier) {
+        OutlinedButton(onClick = onClick, enabled = enabled, colors = colors, modifier = buttonModifier) {
             androidx.compose.material3.Icon(icon, null, tint = contentColor)
             Spacer(modifier = Modifier.width(8.dp))
             Text(label, color = contentColor)
@@ -166,6 +173,7 @@ fun ConfirmDialog(
     title: String,
     message: String,
     confirmLabel: String,
+    confirmEnabled: Boolean = true,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -174,7 +182,7 @@ fun ConfirmDialog(
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            Button(onClick = onConfirm) {
+            Button(onClick = onConfirm, enabled = confirmEnabled) {
                 Text(confirmLabel)
             }
         },

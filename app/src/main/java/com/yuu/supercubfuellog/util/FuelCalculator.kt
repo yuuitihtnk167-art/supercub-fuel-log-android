@@ -8,7 +8,8 @@ object FuelCalculator {
     private val formatter = DateTimeFormatter.ISO_DATE
 
     fun recalculate(records: List<FuelRecord>): List<FuelRecord> {
-        val sorted = records.sortedBy { toEpochDaySafe(it.date) }
+        val deduplicated = deduplicateExactRecords(records)
+        val sorted = deduplicated.sortedBy { toEpochDaySafe(it.date) }
         val estimated = estimateFuel(sorted)
         val result = mutableListOf<FuelRecord>()
 
@@ -33,8 +34,12 @@ object FuelCalculator {
 
                     if (totalFuel > 0) {
                         val distance = current.mileage - estimated[lastMileageIndex].mileage!!
-                        val efficiency = distance / totalFuel
-                        result.add(current.copy(fuelEfficiency = efficiency))
+                        if (distance > 0) {
+                            val efficiency = distance / totalFuel
+                            result.add(current.copy(fuelEfficiency = efficiency))
+                        } else {
+                            result.add(current.copy(fuelEfficiency = null))
+                        }
                     } else {
                         result.add(current.copy(fuelEfficiency = null))
                     }
@@ -47,6 +52,34 @@ object FuelCalculator {
         }
 
         return result
+    }
+
+    private fun deduplicateExactRecords(records: List<FuelRecord>): List<FuelRecord> {
+        if (records.isEmpty()) return records
+
+        val unique = LinkedHashMap<Triple<String, Double?, Double>, FuelRecord>()
+        for (record in records) {
+            val key = Triple(record.date, record.mileage, record.fuel)
+            val existing = unique[key]
+            if (existing == null || shouldReplaceDuplicate(existing, record)) {
+                unique[key] = record
+            }
+        }
+        return unique.values.toList()
+    }
+
+    private fun shouldReplaceDuplicate(existing: FuelRecord, candidate: FuelRecord): Boolean {
+        val existingUpdated = existing.lastUpdated ?: Long.MIN_VALUE
+        val candidateUpdated = candidate.lastUpdated ?: Long.MIN_VALUE
+        if (candidateUpdated != existingUpdated) {
+            return candidateUpdated > existingUpdated
+        }
+
+        if (existing.isEstimated != candidate.isEstimated) {
+            return !candidate.isEstimated
+        }
+
+        return true
     }
 
     private fun estimateFuel(records: List<FuelRecord>): List<FuelRecord> {

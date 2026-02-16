@@ -17,8 +17,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.List as ListIcon
+import androidx.compose.material.icons.filled.Calculate as CalculateIcon
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yuu.supercubfuellog.BuildConfig
 import com.yuu.supercubfuellog.MainViewModel
 import com.yuu.supercubfuellog.data.FuelRecord
 import com.yuu.supercubfuellog.util.CsvUtils
@@ -64,6 +65,7 @@ fun RecordScreen(
 ) {
     val context = LocalContext.current
     val click = { viewModel.performClickFeedback(context) }
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     val editingRecord = viewModel.editingRecord
     var date by rememberSaveable { mutableStateOf("") }
@@ -92,6 +94,7 @@ fun RecordScreen(
         Spacer(modifier = Modifier.height(16.dp))
         NavButtons(
             currentRoute = currentRoute,
+            enabled = !isLoading,
             onNavigate = { route ->
                 click()
                 onNavigate(route)
@@ -125,13 +128,14 @@ fun RecordScreen(
                 OutlinedTextField(
                     value = date,
                     onValueChange = { date = it },
+                    enabled = !isLoading,
                     label = { Text("日付 (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
                         IconButton(onClick = {
                             click()
                             openDatePicker()
-                        }) {
+                        }, enabled = !isLoading) {
                             Icon(
                                 imageVector = Icons.Filled.CalendarMonth,
                                 contentDescription = "Select date"
@@ -143,6 +147,7 @@ fun RecordScreen(
                 OutlinedTextField(
                     value = mileage,
                     onValueChange = { mileage = it },
+                    enabled = !isLoading,
                     label = { Text("走行距離 (km) 任意") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -151,6 +156,7 @@ fun RecordScreen(
                 OutlinedTextField(
                     value = fuel,
                     onValueChange = { fuel = it },
+                    enabled = !isLoading,
                     label = { Text("給油量 (L)") },
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -158,32 +164,28 @@ fun RecordScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
+                        enabled = !isLoading,
                         onClick = {
                             click()
-                            val fuelNum = fuel.toDoubleOrNull()
-                            val mileageNum = mileage.takeIf { it.isNotBlank() }?.toDoubleOrNull()
-
-                            if (date.isBlank() || fuelNum == null || fuelNum <= 0) {
-                                viewModel.postMessage("日付と給油量を正しく入力してください。")
-                                return@Button
+                            when (val validation = validateRecordInput(date, mileage, fuel)) {
+                                is RecordInputValidation.Invalid -> {
+                                    viewModel.postMessage(validation.message)
+                                    return@Button
+                                }
+                                is RecordInputValidation.Valid -> {
+                                    val now = System.currentTimeMillis()
+                                    val record = FuelRecord(
+                                        id = editingRecord?.id ?: now.toString(),
+                                        date = validation.date,
+                                        mileage = validation.mileage,
+                                        fuel = validation.fuel,
+                                        fuelEfficiency = editingRecord?.fuelEfficiency,
+                                        isEstimated = false,
+                                        lastUpdated = now
+                                    )
+                                    viewModel.saveRecord(record, com.yuu.supercubfuellog.data.DataSource.LOCAL)
+                                }
                             }
-
-                            if (mileage.isNotBlank() && mileageNum == null) {
-                                viewModel.postMessage("走行距離を正しい数値で入力してください。")
-                                return@Button
-                            }
-
-                            val now = System.currentTimeMillis()
-                            val record = FuelRecord(
-                                id = editingRecord?.id ?: now.toString(),
-                                date = date,
-                                mileage = mileageNum,
-                                fuel = fuelNum,
-                                fuelEfficiency = editingRecord?.fuelEfficiency,
-                                isEstimated = false,
-                                lastUpdated = now
-                            )
-                            viewModel.saveRecord(record, com.yuu.supercubfuellog.data.DataSource.LOCAL)
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -192,6 +194,7 @@ fun RecordScreen(
 
                     if (editingRecord != null) {
                         OutlinedButton(
+                            enabled = !isLoading,
                             onClick = {
                                 click()
                                 viewModel.cancelEditing()
@@ -208,6 +211,7 @@ fun RecordScreen(
         Spacer(modifier = Modifier.height(24.dp))
         BottomSettingsButton(
             currentRoute = currentRoute,
+            enabled = !isLoading,
             onNavigate = { route ->
                 click()
                 onNavigate(route)
@@ -224,6 +228,7 @@ fun HistoryScreen(
     onEditNavigate: (FuelRecord) -> Unit
 ) {
     val records by viewModel.records.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val click = { viewModel.performClickFeedback(context) }
 
@@ -270,6 +275,7 @@ fun HistoryScreen(
             title = "全件削除",
             message = "すべての記録を削除しますか？",
             confirmLabel = "削除する",
+            confirmEnabled = !isLoading,
             onConfirm = {
                 click()
                 viewModel.deleteAll()
@@ -279,14 +285,16 @@ fun HistoryScreen(
         )
     }
 
-    if (pendingDeleteId != null) {
+    val deleteRecordId = pendingDeleteId
+    if (deleteRecordId != null) {
         ConfirmDialog(
             title = "記録を削除",
             message = "この記録を削除しますか？",
             confirmLabel = "削除する",
+            confirmEnabled = !isLoading,
             onConfirm = {
                 click()
-                viewModel.deleteRecord(pendingDeleteId!!)
+                viewModel.deleteRecord(deleteRecordId)
                 pendingDeleteId = null
             },
             onDismiss = { pendingDeleteId = null }
@@ -297,12 +305,13 @@ fun HistoryScreen(
         ScreenHeader(
             title = "履歴・インポート",
             subtitle = "給油履歴の確認とCSVの入出力",
-            icon = Icons.Filled.List
+            icon = Icons.Filled.ListIcon
         )
 
         Spacer(modifier = Modifier.height(16.dp))
         NavButtons(
             currentRoute = currentRoute,
+            enabled = !isLoading,
             onNavigate = { route ->
                 click()
                 onNavigate(route)
@@ -319,7 +328,7 @@ fun HistoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
+                    OutlinedButton(enabled = !isLoading, onClick = {
                         click()
                         importLauncher.launch(arrayOf("text/*"))
                     }) {
@@ -327,14 +336,14 @@ fun HistoryScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("CSVインポート")
                     }
-                    OutlinedButton(onClick = {
+                    OutlinedButton(enabled = !isLoading, onClick = {
                         click()
                         exportLauncher.launch("fuel_records.csv")
                     }) {
                         Text("CSVエクスポート")
                     }
                 }
-                OutlinedButton(onClick = {
+                OutlinedButton(enabled = !isLoading, onClick = {
                     click()
                     pendingDeleteAll = true
                 }) {
@@ -380,22 +389,22 @@ fun HistoryScreen(
 
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     if (formulaInfo != null) {
-                                        OutlinedButton(onClick = {
+                                        OutlinedButton(enabled = !isLoading, onClick = {
                                             click()
                                             expandedFormulaId = if (expandedFormulaId == record.id) null else record.id
                                         }) {
-                                            Icon(Icons.Filled.Calculate, contentDescription = null)
+                                            Icon(Icons.Filled.CalculateIcon, contentDescription = null)
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(if (expandedFormulaId == record.id) "計算式を隠す" else "計算式")
                                         }
                                     }
-                                    OutlinedButton(onClick = {
+                                    OutlinedButton(enabled = !isLoading, onClick = {
                                         click()
                                         onEditNavigate(record)
                                     }) {
                                         Text("編集")
                                     }
-                                    OutlinedButton(onClick = {
+                                    OutlinedButton(enabled = !isLoading, onClick = {
                                         click()
                                         pendingDeleteId = record.id
                                     }) {
@@ -421,7 +430,7 @@ fun HistoryScreen(
                                         }
                                         Text("合計給油量: ${formatDouble(formulaInfo.totalFuel)} L", style = MaterialTheme.typography.bodySmall)
                                         Text(
-                                            text = "${formatDouble(formulaInfo.distance)} km × ${formatDouble(formulaInfo.totalFuel)} L = ${formatDouble(formulaInfo.efficiency)} km/L",
+                                            text = "${formatDouble(formulaInfo.distance)} km ÷ ${formatDouble(formulaInfo.totalFuel)} L = ${formatDouble(formulaInfo.efficiency)} km/L",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -448,6 +457,7 @@ fun HistoryScreen(
         Spacer(modifier = Modifier.height(24.dp))
         BottomSettingsButton(
             currentRoute = currentRoute,
+            enabled = !isLoading,
             onNavigate = { route ->
                 click()
                 onNavigate(route)
@@ -587,7 +597,7 @@ fun MonthlyScreen(
                                     }
                                     Text("総給油量: ${formatDouble(stats.totalFuel)} L", style = MaterialTheme.typography.bodySmall)
                                     Text(
-                                        text = "${formatDouble(stats.totalMileage)} km × ${formatDouble(stats.totalFuel)} L = ${formatDouble(stats.averageEfficiency)} km/L",
+                                        text = "${formatDouble(stats.totalMileage)} km ÷ ${formatDouble(stats.totalFuel)} L = ${formatDouble(stats.averageEfficiency)} km/L",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
@@ -656,6 +666,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val hapticEnabled by viewModel.hapticEnabled.collectAsStateWithLifecycle()
     val darkThemeEnabled by viewModel.darkThemeEnabled.collectAsStateWithLifecycle()
+    val buildTimeText = DateUtils.formatDateTime(BuildConfig.BUILD_TIME_MILLIS) ?: "取得できませんでした"
     val click = { viewModel.performClickFeedback(context) }
 
     ScreenContainer {
@@ -721,6 +732,15 @@ fun SettingsScreen(
                         }
                     )
                 }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("バージョンアップ日時", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        buildTimeText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -736,5 +756,58 @@ private fun readTextFromUri(context: Context, uri: android.net.Uri): String {
 
 private fun writeTextToUri(context: Context, uri: android.net.Uri, text: String) {
     context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(text) }
+}
+
+private sealed interface RecordInputValidation {
+    data class Valid(
+        val date: String,
+        val mileage: Double?,
+        val fuel: Double
+    ) : RecordInputValidation
+
+    data class Invalid(val message: String) : RecordInputValidation
+}
+
+private val isoDateRegex = Regex("^\\d{4}-\\d{2}-\\d{2}$")
+
+private fun validateRecordInput(
+    dateInput: String,
+    mileageInput: String,
+    fuelInput: String
+): RecordInputValidation {
+    val normalizedDate = dateInput.trim()
+    if (normalizedDate.isBlank()) {
+        return RecordInputValidation.Invalid("日付を入力してください。")
+    }
+    if (!isoDateRegex.matches(normalizedDate)) {
+        return RecordInputValidation.Invalid("日付は YYYY-MM-DD 形式で入力してください。")
+    }
+    val parsedDate = runCatching {
+        LocalDate.parse(normalizedDate, DateTimeFormatter.ISO_DATE)
+    }.getOrNull() ?: return RecordInputValidation.Invalid("日付が正しくありません。実在する日付を入力してください。")
+
+    val normalizedFuel = fuelInput.trim()
+    val fuel = normalizedFuel.toDoubleOrNull()
+        ?: return RecordInputValidation.Invalid("給油量は0より大きい数値で入力してください。")
+    if (!fuel.isFinite() || fuel <= 0.0) {
+        return RecordInputValidation.Invalid("給油量は0より大きい数値で入力してください。")
+    }
+
+    val normalizedMileage = mileageInput.trim()
+    val mileage = if (normalizedMileage.isBlank()) {
+        null
+    } else {
+        normalizedMileage.toDoubleOrNull()
+            ?: return RecordInputValidation.Invalid("走行距離は0以上の数値で入力してください。")
+    }
+    if (mileage != null && (!mileage.isFinite() || mileage < 0.0)) {
+        return RecordInputValidation.Invalid("走行距離は0以上の数値で入力してください。")
+    }
+
+    return RecordInputValidation.Valid(
+        date = parsedDate.format(DateTimeFormatter.ISO_DATE),
+        mileage = mileage,
+        fuel = fuel
+    )
 }
 
