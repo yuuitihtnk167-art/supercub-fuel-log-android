@@ -13,11 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.List as ListIcon
 import androidx.compose.material.icons.filled.Calculate as CalculateIcon
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Upload
@@ -86,7 +87,7 @@ fun RecordScreen(
 
     ScreenContainer {
         ScreenHeader(
-            title = "スーパー・カブ燃費記録",
+            title = "燃費記録Android",
             subtitle = "給油記録をシンプルに管理します。",
             icon = Icons.Filled.Edit
         )
@@ -301,141 +302,164 @@ fun HistoryScreen(
         )
     }
 
-    ScreenContainer {
-        ScreenHeader(
-            title = "履歴・インポート",
-            subtitle = "給油履歴の確認とCSVの入出力",
-            icon = Icons.Filled.ListIcon
-        )
+    val sortedDesc = remember(records) { records.sortedByDescending { it.date } }
+    val lastUpdatedText = remember(records) {
+        DateUtils.formatDateTime(records.mapNotNull { it.lastUpdated }.maxOrNull())
+    }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        NavButtons(
-            currentRoute = currentRoute,
-            enabled = !isLoading,
-            onNavigate = { route ->
-                click()
-                onNavigate(route)
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("CSVインポート・エクスポート", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = "CSVには「日付」「給油量」列が必要です。「走行距離」は任意です。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    LazyScreenContainer {
+        item {
+                ScreenHeader(
+                    title = "履歴・インポート",
+                    subtitle = "給油履歴の確認とCSVの入出力",
+                    icon = Icons.AutoMirrored.Filled.List
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(enabled = !isLoading, onClick = {
-                        click()
-                        importLauncher.launch(arrayOf("text/*"))
-                    }) {
-                        Icon(Icons.Filled.Upload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("CSVインポート")
-                    }
-                    OutlinedButton(enabled = !isLoading, onClick = {
-                        click()
-                        exportLauncher.launch("fuel_records.csv")
-                    }) {
-                        Text("CSVエクスポート")
-                    }
-                }
-                OutlinedButton(enabled = !isLoading, onClick = {
+            }
+
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+
+        item {
+            NavButtons(
+                currentRoute = currentRoute,
+                enabled = !isLoading,
+                onNavigate = { route ->
                     click()
-                    pendingDeleteAll = true
-                }) {
-                    Icon(Icons.Filled.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("すべて削除")
+                    onNavigate(route)
+                }
+            )
+        }
+
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("CSVインポート・エクスポート", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = "CSVには「日付」「給油量」列が必要です。「走行距離」は任意です。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(enabled = !isLoading, onClick = {
+                            click()
+                            importLauncher.launch(arrayOf("text/*"))
+                        }) {
+                            Icon(Icons.Filled.Upload, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("CSVインポート")
+                        }
+                        OutlinedButton(enabled = !isLoading, onClick = {
+                            click()
+                            exportLauncher.launch("fuel_records.csv")
+                        }) {
+                            Text("CSVエクスポート")
+                        }
+                    }
+                    OutlinedButton(enabled = !isLoading, onClick = {
+                        click()
+                        pendingDeleteAll = true
+                    }) {
+                        Icon(Icons.Filled.Delete, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("すべて削除")
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("給油履歴", style = MaterialTheme.typography.titleMedium)
+        item { Spacer(modifier = Modifier.height(16.dp)) }
 
-                if (records.isEmpty()) {
-                    Text(
-                        text = "まだ記録がありません。記録ページから追加してください。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    val sortedDesc = records.sortedByDescending { it.date }
-                    sortedDesc.forEach { record ->
-                        val formulaInfo = FormulaUtils.getFormulaInfo(records, record)
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(record.date, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    text = "走行距離: ${record.mileage?.let { formatDouble(it) } ?: "未記録"} km | 給油量: ${formatDouble(record.fuel)} L",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (record.isEstimated) {
-                                    Text("推定", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelSmall)
-                                }
-                                record.fuelEfficiency?.let {
-                                    Text(
-                                        text = "燃費: ${formatDouble(it)} km/L",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
+        item {
+            Text("給油履歴", style = MaterialTheme.typography.titleMedium)
+        }
 
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (formulaInfo != null) {
-                                        OutlinedButton(enabled = !isLoading, onClick = {
-                                            click()
-                                            expandedFormulaId = if (expandedFormulaId == record.id) null else record.id
-                                        }) {
-                                            Icon(Icons.Filled.CalculateIcon, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(if (expandedFormulaId == record.id) "計算式を隠す" else "計算式")
-                                        }
-                                    }
-                                    OutlinedButton(enabled = !isLoading, onClick = {
-                                        click()
-                                        onEditNavigate(record)
-                                    }) {
-                                        Text("編集")
-                                    }
-                                    OutlinedButton(enabled = !isLoading, onClick = {
-                                        click()
-                                        pendingDeleteId = record.id
-                                    }) {
-                                        Text("削除")
-                                    }
-                                }
+        if (sortedDesc.isEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "まだ記録がありません。記録ページから追加してください。",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            items(
+                items = sortedDesc,
+                key = { it.id }
+            ) { record ->
+                val formulaInfo = FormulaUtils.getFormulaInfo(records, record)
 
-                                if (expandedFormulaId == record.id && formulaInfo != null) {
-                                    Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Text("燃費計算", style = MaterialTheme.typography.titleSmall)
-                                        Text("前回走行距離: ${formatDouble(formulaInfo.prevMileage)} km (${formulaInfo.prevDate})", style = MaterialTheme.typography.bodySmall)
-                                        Text("今回走行距離: ${formatDouble(formulaInfo.currentMileage)} km", style = MaterialTheme.typography.bodySmall)
-                                        Text("走行距離の増加: ${formatDouble(formulaInfo.distance)} km", style = MaterialTheme.typography.bodySmall)
-                                        Text("今回の給油: ${formatDouble(formulaInfo.currentFuel)} L", style = MaterialTheme.typography.bodySmall)
-                                        if (formulaInfo.intermediateFuels.isNotEmpty()) {
-                                            Text("途中の給油:", style = MaterialTheme.typography.bodySmall)
-                                            formulaInfo.intermediateFuels.forEach { fuelInfo ->
-                                                Text(
-                                                    text = "${fuelInfo.date}: ${formatDouble(fuelInfo.fuel)} L${if (fuelInfo.isEstimated) " (推定)" else ""}",
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                            }
-                                        }
-                                        Text("合計給油量: ${formatDouble(formulaInfo.totalFuel)} L", style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(record.date, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            text = "走行距離: ${record.mileage?.let { formatDouble(it) } ?: "未記録"} km | 給油量: ${formatDouble(record.fuel)} L",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (record.isEstimated) {
+                            Text("推定", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelSmall)
+                        }
+                        record.fuelEfficiency?.let {
+                            Text(
+                                text = "燃費: ${formatDouble(it)} km/L",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (formulaInfo != null) {
+                                OutlinedButton(enabled = !isLoading, onClick = {
+                                    click()
+                                    expandedFormulaId = if (expandedFormulaId == record.id) null else record.id
+                                }) {
+                                    Icon(Icons.Filled.CalculateIcon, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(if (expandedFormulaId == record.id) "計算式を隠す" else "計算式")
+                                }
+                            }
+                            OutlinedButton(enabled = !isLoading, onClick = {
+                                click()
+                                onEditNavigate(record)
+                            }) {
+                                Text("編集")
+                            }
+                            OutlinedButton(enabled = !isLoading, onClick = {
+                                click()
+                                pendingDeleteId = record.id
+                            }) {
+                                Text("削除")
+                            }
+                        }
+
+                        if (expandedFormulaId == record.id && formulaInfo != null) {
+                            Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("燃費計算", style = MaterialTheme.typography.titleSmall)
+                                Text("前回走行距離: ${formatDouble(formulaInfo.prevMileage)} km (${formulaInfo.prevDate})", style = MaterialTheme.typography.bodySmall)
+                                Text("今回走行距離: ${formatDouble(formulaInfo.currentMileage)} km", style = MaterialTheme.typography.bodySmall)
+                                Text("走行距離の増加: ${formatDouble(formulaInfo.distance)} km", style = MaterialTheme.typography.bodySmall)
+                                Text("今回の給油: ${formatDouble(formulaInfo.currentFuel)} L", style = MaterialTheme.typography.bodySmall)
+                                if (formulaInfo.intermediateFuels.isNotEmpty()) {
+                                    Text("途中の給油:", style = MaterialTheme.typography.bodySmall)
+                                    formulaInfo.intermediateFuels.forEach { fuelInfo ->
                                         Text(
-                                            text = "${formatDouble(formulaInfo.distance)} km ÷ ${formatDouble(formulaInfo.totalFuel)} L = ${formatDouble(formulaInfo.efficiency)} km/L",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary
+                                            text = "${fuelInfo.date}: ${formatDouble(fuelInfo.fuel)} L${if (fuelInfo.isEstimated) " (推定)" else ""}",
+                                            style = MaterialTheme.typography.bodySmall
                                         )
                                     }
                                 }
+                                Text("合計給油量: ${formatDouble(formulaInfo.totalFuel)} L", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    text = "${formatDouble(formulaInfo.distance)} km ÷ ${formatDouble(formulaInfo.totalFuel)} L = ${formatDouble(formulaInfo.efficiency)} km/L",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     }
@@ -443,26 +467,28 @@ fun HistoryScreen(
             }
         }
 
-        val lastUpdated = records.mapNotNull { it.lastUpdated }.maxOrNull()
-        val lastUpdatedText = DateUtils.formatDateTime(lastUpdated)
         if (lastUpdatedText != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "最終更新: $lastUpdatedText",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "最終更新: $lastUpdatedText",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        BottomSettingsButton(
-            currentRoute = currentRoute,
-            enabled = !isLoading,
-            onNavigate = { route ->
-                click()
-                onNavigate(route)
-            }
-        )
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
+            BottomSettingsButton(
+                currentRoute = currentRoute,
+                enabled = !isLoading,
+                onNavigate = { route ->
+                    click()
+                    onNavigate(route)
+                }
+            )
+        }
     }
 }
 

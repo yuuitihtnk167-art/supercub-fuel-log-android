@@ -19,7 +19,8 @@ object FormulaUtils {
         if (lastMileageIndex < 0 || records[lastMileageIndex].mileage == null) return null
 
         val prevRecord = records[lastMileageIndex]
-        val distance = currentMileage - prevRecord.mileage!!
+        val prevMileage = prevRecord.mileage ?: return null
+        val distance = currentMileage - prevMileage
 
         var totalFuel = record.fuel
         val intermediateFuels = mutableListOf<IntermediateFuel>()
@@ -39,7 +40,7 @@ object FormulaUtils {
 
         return FormulaInfo(
             prevDate = prevRecord.date,
-            prevMileage = prevRecord.mileage!!,
+            prevMileage = prevMileage,
             currentMileage = currentMileage,
             distance = distance,
             intermediateFuels = intermediateFuels,
