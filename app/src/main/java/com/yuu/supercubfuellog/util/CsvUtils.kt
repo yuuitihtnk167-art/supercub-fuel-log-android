@@ -1,77 +1,62 @@
-package com.yuu.supercubfuellog.util
+﻿package com.yuu.supercubfuellog.util
 
 import com.yuu.supercubfuellog.data.CsvRecord
 import com.yuu.supercubfuellog.data.FuelRecord
+import java.time.LocalDate
 import java.util.Locale
 
-object CsvUtils {
-    fun parseCsv(text: String): List<CsvRecord> {
-        val lines = text.split(Regex("\\r?\\n")).filter { it.trim().isNotEmpty() }
-        if (lines.size < 2) return emptyList()
+data class CsvParseResult(val records: List<CsvRecord>, val invalidCount: Int)
 
-        val rows = lines.map { parseCsvLine(it) }
-        var headerRowIndex = -1
+object CsvUtils {
+    fun parseCsv(text: String): List<CsvRecord> = parseDetailed(text).records
+
+    fun parseDetailed(text: String): CsvParseResult {
+        val rows = text.lineSequence().filter { it.isNotBlank() }.map(::parseCsvLine).toList()
+        var header = -1
         var dateIndex = -1
         var mileageIndex = -1
         var fuelIndex = -1
-
         for (i in rows.indices) {
-            val headers = rows[i].map { it.replace("\uFEFF", "").trim() }
-            val dateIdx = headers.indexOfFirst { it.contains("日付") || it.lowercase(Locale.JAPAN).contains("date") }
-            val mileageIdx = headers.indexOfFirst { it.contains("走行") || it.lowercase(Locale.JAPAN).contains("mileage") }
-            val fuelIdx = headers.indexOfFirst {
-                it.contains("燃料") || it.contains("給油") || it.lowercase(Locale.JAPAN).contains("fuel")
+            val names = rows[i].map { it.replace("\uFEFF", "").trim().lowercase(Locale.ROOT) }
+            val date = names.indexOfFirst { it.contains("日付") || it == "date" }
+            val fuel = names.indexOfFirst {
+                it.contains("給油") || it.contains("燃料") || it == "fuel" || it.startsWith("fuel(")
             }
-
-            if (dateIdx != -1 && fuelIdx != -1) {
-                headerRowIndex = i
-                dateIndex = dateIdx
-                mileageIndex = mileageIdx
-                fuelIndex = fuelIdx
+            if (date >= 0 && fuel >= 0) {
+                header = i
+                dateIndex = date
+                fuelIndex = fuel
+                mileageIndex = names.indexOfFirst { it.contains("走行") || it.startsWith("mileage") }
                 break
             }
         }
+        if (header < 0) return CsvParseResult(emptyList(), (rows.size - 1).coerceAtLeast(0))
 
-        if (headerRowIndex == -1 || dateIndex == -1 || fuelIndex == -1) return emptyList()
-
-        val result = mutableListOf<CsvRecord>()
-        for (i in headerRowIndex + 1 until rows.size) {
-            val values = rows[i].map { it.trim() }
-            if (values.size <= maxOf(dateIndex, fuelIndex)) continue
-
-            var date = values[dateIndex]
-            var fuel = values[fuelIndex]
-            var mileage = if (mileageIndex != -1 && values.size > mileageIndex) values[mileageIndex] else ""
-
-            if (date.contains("/")) {
-                date = date.replace("/", "-")
+        val records = mutableListOf<CsvRecord>()
+        var invalid = 0
+        for (values in rows.drop(header + 1)) {
+            val date = normalizeDate(values.getOrNull(dateIndex)?.trim() ?: "")
+            val fuel = parseNumber(values.getOrNull(fuelIndex) ?: "")
+            val mileageText = values.getOrNull(mileageIndex)?.trim() ?: ""
+            val mileage = if (mileageText.isBlank()) null else parseNumber(mileageText)
+            if (date == null || fuel == null || !fuel.isFinite() || fuel <= 0 ||
+                (mileageText.isNotBlank() && (mileage == null || !mileage.isFinite() || mileage < 0))) {
+                invalid++
+            } else {
+                records.add(CsvRecord(date, mileage, fuel))
             }
-
-            fuel = cleanNumber(fuel)
-            mileage = cleanNumber(mileage)
-
-            if (fuel.isBlank() || fuel == "#DIV/0!" || fuel.lowercase(Locale.JAPAN).contains("div/0")) {
-                continue
-            }
-
-            val fuelNum = fuel.toDoubleOrNull() ?: continue
-            if (fuelNum <= 0) continue
-
-            val mileageNum = mileage.toDoubleOrNull()
-
-            if (date.isBlank()) continue
-
-            result.add(
-                CsvRecord(
-                    date = date,
-                    mileage = mileageNum,
-                    fuel = fuelNum
-                )
-            )
         }
-
-        return result
+        return CsvParseResult(records, invalid)
     }
+
+    private fun normalizeDate(value: String): String? = runCatching {
+        val parts = value.replace("/", "-").split("-")
+        require(parts.size == 3)
+        LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt()).toString()
+    }.getOrNull()
+
+    private fun parseNumber(value: String): Double? =
+        value.trim().replace(",", "").replace(Regex("(?i)\\s*(km|l)$"), "").trim().toDoubleOrNull()
 
     fun generateCsv(records: List<FuelRecord>): String {
         val headers = listOf("日付", "走行距離(km)", "給油量(L)", "燃費(km/L)")
@@ -117,7 +102,4 @@ object CsvUtils {
         return result
     }
 
-    private fun cleanNumber(value: String): String {
-        return value.replace(",", "").replace(Regex("[^\\d.-]"), "")
-    }
 }

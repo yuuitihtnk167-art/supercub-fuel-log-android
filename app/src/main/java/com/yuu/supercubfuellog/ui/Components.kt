@@ -115,7 +115,7 @@ fun BottomSettingsButton(
 @Composable
 fun ScreenHeader(
     title: String,
-    subtitle: String,
+    subtitle: String = "",
     icon: ImageVector
 ) {
     Column(
@@ -131,11 +131,13 @@ fun ScreenHeader(
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (subtitle.isNotBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -150,13 +152,13 @@ fun NavButtons(
         if (isCompact) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") }, enabled = enabled)
-                NavButton(label = "履歴・インポート", icon = Icons.AutoMirrored.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, enabled = enabled)
+                NavButton(label = "履歴", icon = Icons.AutoMirrored.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, enabled = enabled)
                 NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") }, enabled = enabled)
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NavButton(label = "記録", icon = Icons.Filled.Edit, isActive = currentRoute == "record", onClick = { onNavigate("record") }, modifier = Modifier.weight(1f), enabled = enabled)
-                NavButton(label = "履歴・インポート", icon = Icons.AutoMirrored.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, modifier = Modifier.weight(1f), enabled = enabled)
+                NavButton(label = "履歴", icon = Icons.AutoMirrored.Filled.List, isActive = currentRoute == "history", onClick = { onNavigate("history") }, modifier = Modifier.weight(1f), enabled = enabled)
                 NavButton(label = "月次レポート", icon = Icons.Filled.CalendarMonth, isActive = currentRoute == "monthly", onClick = { onNavigate("monthly") }, modifier = Modifier.weight(1f), enabled = enabled)
             }
         }
