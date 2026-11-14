@@ -76,10 +76,8 @@ fun RecordScreen(
 
     ScreenContainer {
         CloudStatus(viewModel)
-        Spacer(modifier = Modifier.height(8.dp))
         ScreenHeader(
             title = "燃費記録Android",
-            subtitle = "給油記録をシンプルに管理します。",
             icon = Icons.Filled.Edit
         )
 
@@ -458,7 +456,6 @@ fun MonthlyScreen(
 
     ScreenContainer {
         CloudStatus(viewModel)
-        Spacer(modifier = Modifier.height(8.dp))
         ScreenHeader(
             title = "月次燃費レポート",
             subtitle = "選択した月の燃費を確認できます。",
@@ -640,7 +637,6 @@ fun SettingsScreen(
 
     ScreenContainer {
         CloudStatus(viewModel)
-        Spacer(modifier = Modifier.height(8.dp))
         ScreenHeader(
             title = "設定",
             subtitle = "データ管理、ログイン状態、操作感とテーマを確認・変更できます。",

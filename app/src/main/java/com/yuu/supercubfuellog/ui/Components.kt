@@ -115,7 +115,7 @@ fun BottomSettingsButton(
 @Composable
 fun ScreenHeader(
     title: String,
-    subtitle: String,
+    subtitle: String = "",
     icon: ImageVector
 ) {
     Column(
@@ -131,11 +131,13 @@ fun ScreenHeader(
             Spacer(modifier = Modifier.width(8.dp))
             Text(text = title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (subtitle.isNotBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

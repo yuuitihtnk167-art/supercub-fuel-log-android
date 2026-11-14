@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -109,11 +110,15 @@ fun CloudStatus(viewModel: MainViewModel) {
     val loading by viewModel.isLoading.collectAsStateWithLifecycle()
     val ready by viewModel.isDataReady.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("ログイン本人のクラウド記録", style = MaterialTheme.typography.titleSmall)
-        if (loading) Text("通信中…")
-        if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
-        if (!loading && !ready) Text("読み込みが完了していません。通信状態を確認して再試行してください。")
+    if (loading || error != null || !ready) {
+        Column(
+            modifier = Modifier.padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (loading) Text("通信中…")
+            if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
+            if (!loading && !ready) Text("読み込みが完了していません。通信状態を確認して再試行してください。")
+        }
     }
 }
 
