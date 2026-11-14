@@ -68,24 +68,15 @@ fun RecordScreen(
     val click = { viewModel.performClickFeedback(context) }
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
-    val editingRecord = viewModel.editingRecord
-    var date by rememberSaveable { mutableStateOf("") }
-    var mileage by rememberSaveable { mutableStateOf("") }
-    var fuel by rememberSaveable { mutableStateOf("") }
-
-    LaunchedEffect(editingRecord) {
-        if (editingRecord != null) {
-            date = editingRecord.date
-            mileage = editingRecord.mileage?.toString() ?: ""
-            fuel = editingRecord.fuel.toString()
-        } else {
-            date = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
-            mileage = ""
-            fuel = ""
-        }
-    }
+    val isDataReady by viewModel.isDataReady.collectAsStateWithLifecycle()
+    val draft = viewModel.draft
+    val date = draft.date
+    val mileage = draft.mileage
+    val fuel = draft.fuel
 
     ScreenContainer {
+        CloudStatus(viewModel)
+        Spacer(modifier = Modifier.height(8.dp))
         ScreenHeader(
             title = "燃費記録Android",
             subtitle = "給油記録をシンプルに管理します。",
@@ -106,7 +97,7 @@ fun RecordScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = if (editingRecord != null) "給油記録を編集" else "新しい給油記録",
+                    text = if (draft.isEditing) "給油記録を編集" else "新しい給油記録",
                     style = MaterialTheme.typography.titleLarge
                 )
 
@@ -118,7 +109,7 @@ fun RecordScreen(
                     DatePickerDialog(
                         context,
                         { _, year, month, dayOfMonth ->
-                            date = "%04d-%02d-%02d".format(year, month + 1, dayOfMonth)
+                            viewModel.updateDraft(date = "%04d-%02d-%02d".format(year, month + 1, dayOfMonth))
                         },
                         initialDate.year,
                         initialDate.monthValue - 1,
@@ -128,7 +119,7 @@ fun RecordScreen(
 
                 OutlinedTextField(
                     value = date,
-                    onValueChange = { date = it },
+                    onValueChange = { viewModel.updateDraft(date = it) },
                     enabled = !isLoading,
                     label = { Text("日付 (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth(),
@@ -147,7 +138,7 @@ fun RecordScreen(
 
                 OutlinedTextField(
                     value = mileage,
-                    onValueChange = { mileage = it },
+                    onValueChange = { viewModel.updateDraft(mileage = it) },
                     enabled = !isLoading,
                     label = { Text("走行距離 (km) 任意") },
                     modifier = Modifier.fillMaxWidth(),
@@ -156,7 +147,7 @@ fun RecordScreen(
 
                 OutlinedTextField(
                     value = fuel,
-                    onValueChange = { fuel = it },
+                    onValueChange = { viewModel.updateDraft(fuel = it) },
                     enabled = !isLoading,
                     label = { Text("給油量 (L)") },
                     modifier = Modifier.fillMaxWidth(),
@@ -165,7 +156,7 @@ fun RecordScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
-                        enabled = !isLoading,
+                        enabled = !isLoading && isDataReady,
                         onClick = {
                             click()
                             when (val validation = validateRecordInput(date, mileage, fuel)) {
@@ -176,24 +167,24 @@ fun RecordScreen(
                                 is RecordInputValidation.Valid -> {
                                     val now = System.currentTimeMillis()
                                     val record = FuelRecord(
-                                        id = editingRecord?.id ?: now.toString(),
+                                        id = draft.id,
                                         date = validation.date,
                                         mileage = validation.mileage,
                                         fuel = validation.fuel,
-                                        fuelEfficiency = editingRecord?.fuelEfficiency,
+                                        fuelEfficiency = null,
                                         isEstimated = false,
                                         lastUpdated = now
                                     )
-                                    viewModel.saveRecord(record, com.yuu.supercubfuellog.data.DataSource.LOCAL)
+                                    viewModel.saveRecord(record)
                                 }
                             }
                         },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(if (editingRecord != null) "更新" else "保存")
+                        Text(if (draft.isEditing) "更新" else "保存")
                     }
 
-                    if (editingRecord != null) {
+                    if (draft.isEditing) {
                         OutlinedButton(
                             enabled = !isLoading,
                             onClick = {
@@ -233,48 +224,15 @@ fun HistoryScreen(
     val context = LocalContext.current
     val click = { viewModel.performClickFeedback(context) }
 
-    var pendingDeleteAll by remember { mutableStateOf(false) }
-    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
-    var expandedFormulaId by remember { mutableStateOf<String?>(null) }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            val text = readTextFromUri(context, uri)
-            val parsed = CsvUtils.parseCsv(text)
-            if (parsed.isEmpty()) {
-                viewModel.postMessage("CSVファイルに有効なデータがありません。")
-            } else {
-                val now = System.currentTimeMillis()
-                val imported = parsed.mapIndexed { index, csv ->
-                    FuelRecord(
-                        id = "${now}_$index",
-                        date = csv.date,
-                        mileage = csv.mileage,
-                        fuel = csv.fuel,
-                        lastUpdated = now
-                    )
-                }
-                viewModel.importRecords(imported, com.yuu.supercubfuellog.data.DataSource.LOCAL)
-            }
-        }
-    }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri ->
-        if (uri != null) {
-            val csv = CsvUtils.generateCsv(records)
-            writeTextToUri(context, uri, csv)
-            viewModel.postMessage("CSVをエクスポートしました。")
-        }
-    }
+    val user by viewModel.user.collectAsStateWithLifecycle()
+    var pendingDeleteAll by remember(user?.uid) { mutableStateOf(false) }
+    var pendingDeleteId by remember(user?.uid) { mutableStateOf<String?>(null) }
+    var expandedFormulaId by remember(user?.uid) { mutableStateOf<String?>(null) }
 
     if (pendingDeleteAll) {
         ConfirmDialog(
             title = "全件削除",
-            message = "すべての記録を削除しますか？",
+            message = "ログイン中のアカウントのクラウド記録をすべて削除しますか？",
             confirmLabel = "削除する",
             confirmEnabled = !isLoading,
             onConfirm = {
@@ -308,10 +266,11 @@ fun HistoryScreen(
     }
 
     LazyScreenContainer {
+        item { CloudStatus(viewModel) }
         item {
                 ScreenHeader(
-                    title = "履歴・インポート",
-                    subtitle = "給油履歴の確認とCSVの入出力",
+                    title = "履歴",
+                    subtitle = "給油記録の確認・編集と計算式の確認",
                     icon = Icons.AutoMirrored.Filled.List
                 )
             }
@@ -334,28 +293,7 @@ fun HistoryScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("CSVインポート・エクスポート", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = "CSVには「日付」「給油量」列が必要です。「走行距離」は任意です。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(enabled = !isLoading, onClick = {
-                            click()
-                            importLauncher.launch(arrayOf("text/*"))
-                        }) {
-                            Icon(Icons.Filled.Upload, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("CSVインポート")
-                        }
-                        OutlinedButton(enabled = !isLoading, onClick = {
-                            click()
-                            exportLauncher.launch("fuel_records.csv")
-                        }) {
-                            Text("CSVエクスポート")
-                        }
-                    }
+                    Text("記録の管理", style = MaterialTheme.typography.titleMedium)
                     OutlinedButton(enabled = !isLoading, onClick = {
                         click()
                         pendingDeleteAll = true
@@ -519,6 +457,8 @@ fun MonthlyScreen(
     } else null
 
     ScreenContainer {
+        CloudStatus(viewModel)
+        Spacer(modifier = Modifier.height(8.dp))
         ScreenHeader(
             title = "月次燃費レポート",
             subtitle = "選択した月の燃費を確認できます。",
@@ -690,15 +630,20 @@ fun SettingsScreen(
     onNavigate: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val user by viewModel.user.collectAsStateWithLifecycle()
+    val isSigningIn by viewModel.isSigningIn.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val hapticEnabled by viewModel.hapticEnabled.collectAsStateWithLifecycle()
     val darkThemeEnabled by viewModel.darkThemeEnabled.collectAsStateWithLifecycle()
     val buildTimeText = DateUtils.formatDateTime(BuildConfig.BUILD_TIME_MILLIS) ?: "取得できませんでした"
     val click = { viewModel.performClickFeedback(context) }
 
     ScreenContainer {
+        CloudStatus(viewModel)
+        Spacer(modifier = Modifier.height(8.dp))
         ScreenHeader(
             title = "設定",
-            subtitle = "操作感とテーマを変更できます。",
+            subtitle = "データ管理、ログイン状態、操作感とテーマを確認・変更できます。",
             icon = Icons.Filled.Settings
         )
 
@@ -712,11 +657,32 @@ fun SettingsScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+        DataManagementSection(viewModel)
+
+        Spacer(modifier = Modifier.height(16.dp))
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Googleアカウント", style = MaterialTheme.typography.titleMedium)
+                    val signedInUser = user
+                    Text(
+                        if (signedInUser == null) "未ログイン" else {
+                            val account = signedInUser.email ?: signedInUser.displayName
+                            if (account.isNullOrBlank()) "ログイン済み" else "ログイン済み: $account"
+                        }
+                    )
+                    OutlinedButton(
+                        enabled = !isSigningIn && !isLoading,
+                        onClick = {
+                            click()
+                            viewModel.signOut()
+                        }
+                    ) { Text("ログアウト") }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -772,16 +738,79 @@ fun SettingsScreen(
     }
 }
 
+@Composable
+private fun DataManagementSection(viewModel: MainViewModel) {
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isDataReady by viewModel.isDataReady.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val click = { viewModel.performClickFeedback(context) }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> viewModel.finishImportSelection(uri) }
+
+    ImportConfirmation(viewModel)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("データ管理", style = MaterialTheme.typography.titleLarge)
+            Text("CSVの記録をクラウドへ取り込みます。既存記録は保持し、重複を除いた追加分だけ取り込みます。")
+            if (viewModel.pendingImportText != null && viewModel.importPreview == null) {
+                OutlinedButton(
+                    enabled = !isLoading,
+                    onClick = { viewModel.pendingImportText?.let(viewModel::prepareImport) }
+                ) { Text("選択済みCSVの確認を再試行") }
+            }
+            Text(
+                text = "CSVには「日付」「給油量」列が必要です。「走行距離」は任意です。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading && isDataReady,
+                onClick = {
+                    click()
+                    if (viewModel.beginImportSelection()) {
+                        importLauncher.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream"))
+                    }
+                }
+            ) {
+                Icon(Icons.Filled.Upload, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("CSVインポート")
+            }
+            OutlinedButton(
+                enabled = !isLoading,
+                onClick = {
+                    click()
+                    viewModel.refresh()
+                }
+            ) {
+                Text("最新の記録に更新")
+            }
+            Text(
+                text = "別端末で変更した記録の取得や、通信エラー後の再試行に使います",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("CSVへの書き出し", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "クラウドの記録をCSVファイルとして、スマホなどの保存先に書き出します。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            CsvExportButton(viewModel, modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+    }
+}
+
 private fun formatDouble(value: Double): String {
     return String.format(Locale.JAPAN, "%.2f", value)
-}
-
-private fun readTextFromUri(context: Context, uri: android.net.Uri): String {
-    return context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
-}
-
-private fun writeTextToUri(context: Context, uri: android.net.Uri, text: String) {
-    context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(text) }
 }
 
 private sealed interface RecordInputValidation {

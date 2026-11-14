@@ -1,0 +1,37 @@
+rules_version = '2';
+// Prototype rules: review and test before publishing.
+// allowedUsers/{uid}: enabled (bool). Only console/IAM administrators write it.
+// users/{uid}/records/{recordId}: date (YYYY-MM-DD string), mileage (number|null),
+// fuel (positive number), fuelEfficiency (number|null), isEstimated (bool),
+// lastUpdated (nonnegative integer milliseconds|null). Ownership comes from the UID path.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function isApprovedOwner(uid) {
+      return isOwner(uid)
+        && exists(/databases/$(database)/documents/allowedUsers/$(uid))
+        && get(/databases/$(database)/documents/allowedUsers/$(uid)).data.enabled == true;
+    }
+    function isValidRecord(d) {
+      return d.keys().hasAll(['date', 'mileage', 'fuel', 'fuelEfficiency', 'isEstimated', 'lastUpdated'])
+        && d.keys().hasOnly(['date', 'mileage', 'fuel', 'fuelEfficiency', 'isEstimated', 'lastUpdated'])
+        && d.date is string && d.date.size() == 10
+        && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && (d.mileage == null || (d.mileage is number && d.mileage >= 0 && d.mileage <= 1000000000000))
+        && d.fuel is number && d.fuel > 0 && d.fuel <= 1000000
+        && (d.fuelEfficiency == null || (d.fuelEfficiency is number && d.fuelEfficiency >= 0 && d.fuelEfficiency <= 1000000000))
+        && d.isEstimated is bool
+        && (d.lastUpdated == null || (d.lastUpdated is int && d.lastUpdated >= 0 && d.lastUpdated <= 9999999999999));
+    }
+    match /allowedUsers/{uid} {
+      allow get: if isOwner(uid);
+      allow list, create, update, delete: if false;
+    }
+    match /users/{uid}/records/{recordId} {
+      allow get, list, delete: if isApprovedOwner(uid);
+      allow create, update: if isApprovedOwner(uid) && isValidRecord(request.resource.data);
+    }
+  }
+}
