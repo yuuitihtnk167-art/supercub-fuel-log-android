@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yuu.supercubfuellog.BuildConfig
 import com.yuu.supercubfuellog.MainViewModel
 import com.yuu.supercubfuellog.data.FuelRecord
+import com.yuu.supercubfuellog.data.PhotoField
 import com.yuu.supercubfuellog.util.CsvUtils
 import com.yuu.supercubfuellog.util.DateUtils
 import com.yuu.supercubfuellog.util.FormulaUtils
@@ -62,7 +63,8 @@ import java.util.Locale
 fun RecordScreen(
     viewModel: MainViewModel,
     currentRoute: String,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    acquirePhoto: AcquirePhoto
 ) {
     val context = LocalContext.current
     val click = { viewModel.performClickFeedback(context) }
@@ -140,8 +142,13 @@ fun RecordScreen(
                     enabled = !isLoading,
                     label = { Text("走行距離 (km) 任意") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailingIcon = {
+                        PhotoSourceButton(viewModel, PhotoField.METER, acquirePhoto,
+                            replace = viewModel.photoState.meter.firstOrNull()?.fileName)
+                    }
                 )
+                PhotoAttachments(viewModel, PhotoField.METER, acquirePhoto)
 
                 OutlinedTextField(
                     value = fuel,
@@ -149,12 +156,16 @@ fun RecordScreen(
                     enabled = !isLoading,
                     label = { Text("給油量 (L)") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailingIcon = { PhotoSourceButton(viewModel, PhotoField.RECEIPT, acquirePhoto) }
                 )
+                PhotoAttachments(viewModel, PhotoField.RECEIPT, acquirePhoto)
+
+                AnalysisPasteSection(viewModel)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
-                        enabled = !isLoading && isDataReady,
+                        enabled = !isLoading && isDataReady && !viewModel.photoBusy && viewModel.photoState.pending == null,
                         onClick = {
                             click()
                             when (val validation = validateRecordInput(date, mileage, fuel)) {
@@ -837,22 +848,17 @@ private fun validateRecordInput(
         LocalDate.parse(normalizedDate, DateTimeFormatter.ISO_DATE)
     }.getOrNull() ?: return RecordInputValidation.Invalid("日付が正しくありません。実在する日付を入力してください。")
 
-    val normalizedFuel = fuelInput.trim()
-    val fuel = normalizedFuel.toDoubleOrNull()
-        ?: return RecordInputValidation.Invalid("給油量は0より大きい数値で入力してください。")
-    if (!fuel.isFinite() || fuel <= 0.0) {
-        return RecordInputValidation.Invalid("給油量は0より大きい数値で入力してください。")
-    }
-
-    val normalizedMileage = mileageInput.trim()
-    val mileage = if (normalizedMileage.isBlank()) {
-        null
-    } else {
-        normalizedMileage.toDoubleOrNull()
-            ?: return RecordInputValidation.Invalid("走行距離は0以上の数値で入力してください。")
-    }
-    if (mileage != null && (!mileage.isFinite() || mileage < 0.0)) {
-        return RecordInputValidation.Invalid("走行距離は0以上の数値で入力してください。")
+    val fuel: Double
+    val mileage: Double?
+    try {
+        fuel = com.yuu.supercubfuellog.util.RecordNumberValidator
+            .validate(fuelInput, isMileage = false).toDouble()
+        mileage = if (mileageInput.isBlank()) null else {
+            com.yuu.supercubfuellog.util.RecordNumberValidator
+                .validate(mileageInput, isMileage = true).toDouble()
+        }
+    } catch (e: IllegalArgumentException) {
+        return RecordInputValidation.Invalid(e.message ?: "数値が正しくありません。")
     }
 
     return RecordInputValidation.Valid(

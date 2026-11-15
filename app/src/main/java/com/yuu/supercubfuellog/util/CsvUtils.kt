@@ -36,9 +36,9 @@ object CsvUtils {
         var invalid = 0
         for (values in rows.drop(header + 1)) {
             val date = normalizeDate(values.getOrNull(dateIndex)?.trim() ?: "")
-            val fuel = parseNumber(values.getOrNull(fuelIndex) ?: "")
+            val fuel = parseNumber(values.getOrNull(fuelIndex) ?: "", isMileage = false)
             val mileageText = values.getOrNull(mileageIndex)?.trim() ?: ""
-            val mileage = if (mileageText.isBlank()) null else parseNumber(mileageText)
+            val mileage = if (mileageText.isBlank()) null else parseNumber(mileageText, isMileage = true)
             if (date == null || fuel == null || !fuel.isFinite() || fuel <= 0 ||
                 (mileageText.isNotBlank() && (mileage == null || !mileage.isFinite() || mileage < 0))) {
                 invalid++
@@ -55,8 +55,10 @@ object CsvUtils {
         LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt()).toString()
     }.getOrNull()
 
-    private fun parseNumber(value: String): Double? =
-        value.trim().replace(",", "").replace(Regex("(?i)\\s*(km|l)$"), "").trim().toDoubleOrNull()
+    private fun parseNumber(value: String, isMileage: Boolean): Double? = runCatching {
+        val normalized = value.trim().replace(",", "").replace(Regex("(?i)\\s*(km|l)$"), "").trim()
+        RecordNumberValidator.validate(normalized, isMileage).toDouble()
+    }.getOrNull()
 
     fun generateCsv(records: List<FuelRecord>): String {
         val headers = listOf("日付", "走行距離(km)", "給油量(L)", "燃費(km/L)")

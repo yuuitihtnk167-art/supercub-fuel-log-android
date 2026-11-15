@@ -31,6 +31,7 @@ import com.yuu.supercubfuellog.MainViewModel
 
 @Composable
 fun AppRoot(viewModel: MainViewModel) {
+    val acquirePhoto = rememberPhotoAcquisition(viewModel)
     val user by viewModel.user.collectAsStateWithLifecycle()
     val ready by viewModel.isDataReady.collectAsStateWithLifecycle()
     val approvalStatus by viewModel.approvalStatus.collectAsStateWithLifecycle()
@@ -55,7 +56,7 @@ fun AppRoot(viewModel: MainViewModel) {
                     user == null -> LoginScreen(viewModel)
                     approvalStatus != ApprovalGate.Status.APPROVED -> ApprovalCheckScreen(viewModel)
                     !ready -> CloudLoadingScreen(viewModel)
-                    else -> AuthenticatedNavigation(viewModel)
+                    else -> AuthenticatedNavigation(viewModel, acquirePhoto)
                 }
                 if (loading && user != null) {
                     Box(
@@ -69,7 +70,7 @@ fun AppRoot(viewModel: MainViewModel) {
 }
 
 @Composable
-private fun AuthenticatedNavigation(viewModel: MainViewModel) {
+private fun AuthenticatedNavigation(viewModel: MainViewModel, acquirePhoto: AcquirePhoto) {
     val navController = rememberNavController()
     val entry by navController.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "record"
@@ -81,7 +82,7 @@ private fun AuthenticatedNavigation(viewModel: MainViewModel) {
         }
     }
     NavHost(navController = navController, startDestination = "record") {
-        composable("record") { RecordScreen(viewModel, route, navigate) }
+        composable("record") { RecordScreen(viewModel, route, navigate, acquirePhoto) }
         composable("history") {
             HistoryScreen(viewModel, route, navigate) { record ->
                 viewModel.startEditing(record)

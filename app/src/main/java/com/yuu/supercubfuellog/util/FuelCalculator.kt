@@ -8,7 +8,7 @@ object FuelCalculator {
     private val formatter = DateTimeFormatter.ISO_DATE
 
     fun recalculate(records: List<FuelRecord>): List<FuelRecord> {
-        val deduplicated = deduplicateExactRecords(records)
+        val deduplicated = deduplicateRecordsById(records)
         val sorted = deduplicated.sortedBy { toEpochDaySafe(it.date) }
         val estimated = estimateFuel(sorted)
         val result = mutableListOf<FuelRecord>()
@@ -54,12 +54,12 @@ object FuelCalculator {
         return result
     }
 
-    private fun deduplicateExactRecords(records: List<FuelRecord>): List<FuelRecord> {
+    private fun deduplicateRecordsById(records: List<FuelRecord>): List<FuelRecord> {
         if (records.isEmpty()) return records
 
-        val unique = LinkedHashMap<Triple<String, Double?, Double>, FuelRecord>()
+        val unique = LinkedHashMap<String, FuelRecord>()
         for (record in records) {
-            val key = Triple(record.date, record.mileage, record.fuel)
+            val key = record.id
             val existing = unique[key]
             if (existing == null || shouldReplaceDuplicate(existing, record)) {
                 unique[key] = record

@@ -55,16 +55,17 @@ object MonthlyCalculator {
             null
         }
 
-        val totalFuelInMonth = if (isFirstRecordEver) {
-            monthly.drop(1).sumOf { it.fuel }
+        // The first known mileage is the baseline; fuel at or before it has no measured distance.
+        val fuelRecords = if (isFirstRecordEver) {
+            monthly.drop(monthly.indexOfFirst { it.id == firstRecordInMonth.id } + 1)
         } else {
-            monthly.sumOf { it.fuel }
+            monthly
         }
+        val totalFuelInMonth = fuelRecords.sumOf { it.fuel }
 
         val mileageIncrease = (lastRecordInMonth.mileage ?: 0.0) - (previousMonthLastMileage ?: 0.0)
         val average = if (totalFuelInMonth > 0) mileageIncrease / totalFuelInMonth else null
 
-        val fuelRecords = if (isFirstRecordEver) monthly.drop(1) else monthly
         val hasEstimated = fuelRecords.any { it.isEstimated }
 
         return MonthlyStats(
